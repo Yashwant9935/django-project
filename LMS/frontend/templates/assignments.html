@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini LMS - Assignments</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body style="display: block; padding-top: 80px;">
+    <nav>
+        <a href="/courses">Courses</a>
+        <a href="/assignments">Assignments</a>
+        <a href="#" onclick="logout()">Logout</a>
+    </nav>
+
+    <div style="max-width: 600px; margin: 0 auto; padding: 2rem;">
+        <div id="assignmentInfo" style="margin-bottom: 2rem; border-bottom: 1px solid #334155; padding-bottom: 1rem; display: none;">
+            <h2>Course Assignments</h2>
+            <div id="assignmentList" style="margin-top: 1rem;"></div>
+        </div>
+
+        <h1>Submit Assignment</h1>
+        <form id="submissionForm" class="course-card">
+            <label style="display: block; margin-bottom: 0.5rem;">Assignment ID</label>
+            <input type="number" id="assignmentId" required placeholder="Select an ID from above or enter manually">
+            <label style="display: block; margin-bottom: 0.5rem;">Your Submission Content</label>
+            <textarea id="content" style="width: 100%; height: 150px; background: #0f172a; color: white; border-radius: 0.5rem; padding: 0.75rem; border: 1px solid #334155; margin-bottom: 1rem;"></textarea>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const courseId = urlParams.get('course');
+        const token = localStorage.getItem('access');
+
+        if (!token) window.location.href = '/';
+
+        async function fetchAssignments() {
+            if (!courseId) return;
+            
+            // We'll fetch the course details which includes assignments
+            const response = await fetch(`/api/courses/list/${courseId}/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const course = await response.json();
+                const infoDiv = document.getElementById('assignmentInfo');
+                const listDiv = document.getElementById('assignmentList');
+                
+                if (course.assignments && course.assignments.length > 0) {
+                    infoDiv.style.display = 'block';
+                    listDiv.innerHTML = course.assignments.map(a => `
+                        <div class="course-card" style="cursor: pointer; background: #111827;" onclick="selectAssignment(${a.id})">
+                            <strong>ID: ${a.id}</strong> - ${a.title}
+                            <p style="font-size: 0.875rem; color: var(--text-muted);">${a.description}</p>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+
+        function selectAssignment(id) {
+            document.getElementById('assignmentId').value = id;
+            document.getElementById('content').focus();
+        }
+
+        document.getElementById('submissionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const assignmentId = document.getElementById('assignmentId').value;
+            const content = document.getElementById('content').value;
+
+            const response = await fetch('/api/courses/submissions/', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ assignment: parseInt(assignmentId), content })
+            });
+
+            if (response.ok) {
+                alert('Submitted successfully!');
+                window.location.href = '/courses';
+            } else {
+                const errorData = await response.json();
+                alert('Submission failed: ' + JSON.stringify(errorData));
+            }
+        });
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/';
+        }
+
+        fetchAssignments();
+    </script>
+</body>
+</html>
